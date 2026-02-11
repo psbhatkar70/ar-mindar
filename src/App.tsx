@@ -1,63 +1,48 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { MindARThree } from "mind-ar/dist/mindar-image-three.prod.js";
 
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let mindar: any;
+    if (!containerRef.current) return;
 
-    const startAR = async () => {
-      // MindAR via CDN (ESM)
-      const { MindARThree } = await import(
-  "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.module.js"
-);
+    const mindar = new MindARThree({
+      container: containerRef.current,
+      imageTargetSrc: "/target/targets.mind",
+    });
 
+    const { renderer, scene, camera } = mindar;
 
-      if (!containerRef.current) return;
+    const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+    scene.add(light);
 
-      mindar = new MindARThree({
-        container: containerRef.current,
-        imageTargetSrc: "../public/target/targets.mind",
-      });
+    const anchor = mindar.addAnchor(0);
 
-      const { renderer, scene, camera } = mindar;
+    const loader = new GLTFLoader();
+    loader.load("/model/cake.glb", (gltf) => {
+      gltf.scene.scale.set(0.1, 0.1, 0.1);
+      anchor.group.add(gltf.scene);
+    });
 
-      // light
-      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-      scene.add(light);
+    mindar.start();
 
-      // anchor
-      const anchor = mindar.addAnchor(0);
-
-      // model
-      const loader = new GLTFLoader();
-      loader.load("../public/model/cake.glb", (gltf) => {
-        const model = gltf.scene;
-        model.scale.set(0.1, 0.1, 0.1);
-        anchor.group.add(model);
-      });
-
-      await mindar.start();
-
-      renderer.setAnimationLoop(() => {
-        renderer.render(scene, camera);
-      });
-    };
-
-    startAR();
+    renderer.setAnimationLoop(() => {
+      renderer.render(scene, camera);
+    });
 
     return () => {
-      mindar?.stop();
-      document.querySelector("video")?.remove();
+      mindar.stop();
+      renderer.setAnimationLoop(null);
     };
   }, []);
 
   return (
     <div
       ref={containerRef}
-      style={{ width: "100vw", height: "100vh", background: "#000" }}
+      style={{ width: "100vw", height: "100vh", background: "black" }}
     />
   );
 }
