@@ -23,22 +23,29 @@ export default function App() {
         container: containerRef.current,
         imageTargetSrc: "/target/targets.mind",
         uiScanning: "yes", 
+
+        // --- STABILITY FINAL TUNING ---
         
-        // --- CTO TUNING FOR S24 ---
-        // 1. MinCF (Jitter Control): 
-        // kept low to stop shaking.
+        // 1. CUTOFF (MinCF): 
+        // Keep this LOW. This is the "Anchor". It stops the micro-shaking.
         filterMinCF: 0.001, 
 
-        // 2. Beta (Lag Control): 
-        // INCREASED from 0.001 -> 10. 
-        // This stops the "drifting/floating". It forces the model to snap 
-        // to the paper instantly when you move the phone.
-        filterBeta: 10,
+        // 2. RESPONSIVENESS (Beta): 
+        // We set this to 1.0 (The Goldilocks Value).
+        // 0.001 was too slow (floating). 10 was too fast (teleporting).
+        // 1.0 is the standard for "snappy but stable".
+        filterBeta: 1.0,
 
-        // 3. WARMUP
-        // We wait longer (10 frames) to ensure the first lock is accurate.
+        // 3. LOCK STRENGTH (Warmup):
+        // We increase this to 10. This forces the engine to confirm the image 
+        // for 10 consecutive frames before showing the model.
+        // This prevents the model from appearing in a "glitched" position initially.
         warmupTolerance: 10, 
-        missTolerance: 5, 
+
+        // 4. PERSISTENCE (Miss):
+        // If the camera loses focus for a split second, don't hide the model.
+        // This prevents the "flickering" effect.
+        missTolerance: 10, 
       });
 
       const { renderer, scene, camera } = mindarInstance;
