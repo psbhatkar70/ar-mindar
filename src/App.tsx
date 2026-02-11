@@ -23,28 +23,19 @@ export default function App() {
       if (!containerRef.current) return;
 
       mindarInstance = new MindARThree({
-        container: containerRef.current,
-        imageTargetSrc: "/target/targets.mind",
-        uiScanning: "yes", 
-        
-        // --- STABILITY TUNING (THE "GLUE" FIX) ---
-        
-        // 1. FILTER CUTOFF (filterMinCF): 
-        // Changed from 0.00001 (Too Slow) -> 0.0005 (Standard)
-        // This tells the code: "If the movement is small, update position 50x faster than before."
-        filterMinCF: 0.0005, 
+  container: containerRef.current,
+  imageTargetSrc: "/target/targets.mind",
+  uiScanning: "yes",
 
-        // 2. MOVEMENT RESPONSE (filterBeta):
-        // Changed from 0.001 -> 0.05
-        // This tells the code: "If the user moves the phone quickly, DROP the filter 
-        // and snap to the new position immediately."
-        filterBeta: 0.05,
+  // --- THE "MAGIC" VALUES FROM GITHUB ISSUE #146 ---
+  // Many users confirmed these specific numbers killed the jitter:
+  filterMinCF: 0.0001, // Very aggressive smoothing
+  filterBeta: 0.001,   // Minimizes lag while smoothing
 
-        // 3. TOLERANCE
-        // Keeps the model visible if you briefly lose tracking, but won't let it drift.
-        missTolerance: 5, 
-        warmupTolerance: 5, 
-      });
+  // OPTIONAL: Keep these to prevent flickering if tracking is lost briefly
+  missTolerance: 5,
+  warmupTolerance: 5,
+});
 
       const { renderer, scene, camera } = mindarInstance;
 
