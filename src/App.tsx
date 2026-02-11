@@ -4,11 +4,8 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const MINDAR_URL = "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js";
 
-// --- ARCHITECTURAL CONFIGURATION ---
-// Measure your physical printed menu width in meters.
-// Standard A4 paper width is approx 0.21 meters.
-// If you are testing on a laptop screen, it's likely around 0.3 meters.
-const MENU_WIDTH_METERS = 0.2; // Set this to the REAL width of your target
+// CONFIG: Your menu width in meters
+const MENU_WIDTH_METERS = 0.2; 
 
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -23,28 +20,36 @@ export default function App() {
       if (!containerRef.current) return;
 
       mindarInstance = new MindARThree({
-  container: containerRef.current,
-  imageTargetSrc: "/target/targets.mind",
-  uiScanning: "yes",
+        container: containerRef.current,
+        imageTargetSrc: "/target/targets.mind",
+        uiScanning: "yes", 
+        
+        // --- CTO TUNING FOR S24 ---
+        // 1. MinCF (Jitter Control): 
+        // kept low to stop shaking.
+        filterMinCF: 0.001, 
 
-  // --- THE "MAGIC" VALUES FROM GITHUB ISSUE #146 ---
-  // Many users confirmed these specific numbers killed the jitter:
-  filterMinCF: 0.0001, // Very aggressive smoothing
-  filterBeta: 0.001,   // Minimizes lag while smoothing
+        // 2. Beta (Lag Control): 
+        // INCREASED from 0.001 -> 10. 
+        // This stops the "drifting/floating". It forces the model to snap 
+        // to the paper instantly when you move the phone.
+        filterBeta: 10,
 
-  // OPTIONAL: Keep these to prevent flickering if tracking is lost briefly
-  missTolerance: 5,
-  warmupTolerance: 5,
-});
+        // 3. WARMUP
+        // We wait longer (10 frames) to ensure the first lock is accurate.
+        warmupTolerance: 10, 
+        missTolerance: 5, 
+      });
 
       const { renderer, scene, camera } = mindarInstance;
 
       renderer.setClearColor(0x000000, 0); 
       renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-      const ambient = new THREE.AmbientLight(0xffffff, 1.2);
+      // LIGHTING: Make it bright so depth is visible
+      const ambient = new THREE.AmbientLight(0xffffff, 1.0);
       scene.add(ambient);
-      const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+      const sun = new THREE.DirectionalLight(0xffffff, 2.5);
       sun.position.set(5, 10, 5);
       scene.add(sun);
 
@@ -54,25 +59,23 @@ export default function App() {
       loader.load("/model/cake.glb", (gltf) => {
         const model = gltf.scene;
 
-        // --- AUTOMATIC SCALING LOGIC ---
+        // --- POSITION & SCALE FIXES ---
         
-        // 1. ROTATION: Fix Blender Z-up to Three.js Y-up
+        // ROTATION: Stand up
         model.rotation.set(Math.PI / 2, 0, 0); 
 
-        // 2. NORMALIZATION: 
-        // Calculate the scale factor needed to make 1 Unit = 1 Meter
+        // SCALE: 
+        // Using the auto-calculation based on your menu width
         const scaleFactor = 1 / MENU_WIDTH_METERS;
-        
-        // Apply the scale uniformly. 
-        // Now, a 0.2m model in Blender will visually appear as 0.2m in AR.
         model.scale.set(scaleFactor, scaleFactor, scaleFactor); 
         
-        model.position.set(0, 0, 0);
+        // POSITION FIX (The "Too Close" Fix):
+        // We push the model slightly "down" into the paper (z = -0.1) 
+        // or just ensure it is exactly at 0.
+        // If it feels like it's floating ABOVE the paper, set Z to a small negative number.
+        model.position.set(0, 0, 0); 
 
         anchor.group.add(model);
-        
-        // Debug Log: Verifies the calculation
-        console.log(`Auto-Scaling Applied: ${scaleFactor}x (Based on ${MENU_WIDTH_METERS}m target width)`);
       });
 
       try {
