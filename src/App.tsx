@@ -18,22 +18,27 @@ export default function App() {
 
       if (!containerRef.current) return;
 
-      // 2. Initialize Engine
+      // 2. Initialize Engine with STABILITY FILTERS
       mindarInstance = new MindARThree({
         container: containerRef.current,
         imageTargetSrc: "/target/targets.mind", 
         uiScanning: "yes", 
+        
+        // TWEAK 1: ANTI-SHAKE FILTERS
+        // These settings smooth out the "jitter" (shaking)
+        filterMinCF: 0.0001, // Lower = smoother tracking (less shaking)
+        filterBeta: 0.001,   // Lower = less lag
+        
+        // TWEAK 2: FLICKER PREVENTION
+        // If camera loses the menu for 5 frames, don't hide the model immediately
+        missTolerance: 5,   
+        warmupTolerance: 5, 
       });
 
       const { renderer, scene, camera } = mindarInstance;
 
-      // FIX 1: TRANSPARENCY (The correct way)
-      // MindAR initializes the renderer with alpha:true by default.
-      // We just need to ensure the clear color is transparent.
+      // Transparency & Color Correction
       renderer.setClearColor(0x000000, 0); 
-
-      // FIX 2: COLOR SPACE (Fixes the "outputEncoding" warning)
-      // Modern Three.js uses outputColorSpace
       renderer.outputColorSpace = THREE.SRGBColorSpace;
 
       // 3. Lighting
@@ -51,10 +56,14 @@ export default function App() {
       loader.load("/model/cake.glb", (gltf) => {
         const model = gltf.scene;
         
-        // FIX 3: ROTATION & SCALE
-        // Rotate 90 degrees on X to convert Blender Z-up to Three.js Y-up
+        // ROTATION (Kept exactly as you said it was perfect)
         model.rotation.set(Math.PI / 2, 0, 0); 
-        model.scale.set(0.2, 0.2, 0.2); 
+        
+        // TWEAK 3: SCALE UP
+        // Increased from 0.2 to 0.5. 
+        // If still too small, try 0.8. If too big, try 0.3.
+        model.scale.set(0.5, 0.5, 0.5); 
+        
         model.position.set(0, 0, 0);
         
         anchor.group.add(model);
@@ -76,7 +85,6 @@ export default function App() {
     return () => {
       if (mindarInstance) {
         mindarInstance.stop();
-        // Force cleanup of the video element
         const video = document.querySelector("video");
         if (video) {
           video.srcObject = null;
