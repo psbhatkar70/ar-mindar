@@ -21,7 +21,7 @@ export default function App() {
 
       mindarInstance = new MindARThree({
         container: containerRef.current,
-        imageTargetSrc: "/target/targets.mind",
+        imageTargetSrc: "/target/targets (1).mind",
         uiScanning: "yes", 
 
         // --- STABILITY FINAL TUNING ---
