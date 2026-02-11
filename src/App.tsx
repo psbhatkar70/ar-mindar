@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react";
-import './App.css';
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-// CTO Note: Use production build for stability on S24
+// CTO Note: Using the production build for stability
 const MINDAR_URL = "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js";
 
 export default function App() {
@@ -14,6 +13,7 @@ export default function App() {
 
     const startAR = async () => {
       // 1. Dynamic Import
+      // @ts-ignore
       const { MindARThree } = await import(/* @vite-ignore */ MINDAR_URL);
 
       if (!containerRef.current) return;
@@ -27,16 +27,20 @@ export default function App() {
 
       const { renderer, scene, camera } = mindarInstance;
 
-      // FIX 1: TRANSPARENCY
-      // This makes the 3D canvas transparent so the camera video shows through
-      renderer.setAlpha(true);
+      // FIX 1: TRANSPARENCY (The correct way)
+      // MindAR initializes the renderer with alpha:true by default.
+      // We just need to ensure the clear color is transparent.
       renderer.setClearColor(0x000000, 0); 
+
+      // FIX 2: COLOR SPACE (Fixes the "outputEncoding" warning)
+      // Modern Three.js uses outputColorSpace
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
 
       // 3. Lighting
       const ambient = new THREE.AmbientLight(0xffffff, 1);
       scene.add(ambient);
-      const sun = new THREE.DirectionalLight(0xffffff, 2);
-      sun.position.set(5, 10, 5); // Sun coming from top-right
+      const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+      sun.position.set(5, 10, 5); 
       scene.add(sun);
 
       // 4. Anchor
@@ -47,16 +51,10 @@ export default function App() {
       loader.load("/model/cake.glb", (gltf) => {
         const model = gltf.scene;
         
-        // FIX 2: ROTATION (The Brown Line Fix)
+        // FIX 3: ROTATION & SCALE
         // Rotate 90 degrees on X to convert Blender Z-up to Three.js Y-up
         model.rotation.set(Math.PI / 2, 0, 0); 
-        
-        // SCALE: 
-        // In MindAR, 1 unit = width of the physical image target.
-        // If your model is real-scale (0.2m), try 0.2 first.
         model.scale.set(0.2, 0.2, 0.2); 
-        
-        // Center it perfectly
         model.position.set(0, 0, 0);
         
         anchor.group.add(model);
@@ -78,21 +76,24 @@ export default function App() {
     return () => {
       if (mindarInstance) {
         mindarInstance.stop();
+        // Force cleanup of the video element
         const video = document.querySelector("video");
-        video?.remove();
+        if (video) {
+          video.srcObject = null;
+          video.remove();
+        }
       }
     };
   }, []);
 
   return (
-    // FIX 3: REMOVE BACKGROUND COLOR
     <div
       ref={containerRef}
       style={{ 
         width: "100vw", 
         height: "100vh", 
         overflow: "hidden",
-        position: "relative" // Crucial for video layering
+        position: "relative"
       }}
     />
   );
