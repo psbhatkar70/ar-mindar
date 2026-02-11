@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
+import './App.css';
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-// CTO Note: Use the production build URL for stability
+// CTO Note: Use production build for stability on S24
 const MINDAR_URL = "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js";
 
 export default function App() {
@@ -17,34 +18,51 @@ export default function App() {
 
       if (!containerRef.current) return;
 
-      // 2. Fix Paths: Root slash '/' points to your public folder automatically
+      // 2. Initialize Engine
       mindarInstance = new MindARThree({
         container: containerRef.current,
         imageTargetSrc: "/target/targets.mind", 
-        uiScanning: "yes", // Set to "no" if you want a custom UI later
+        uiScanning: "yes", 
       });
 
       const { renderer, scene, camera } = mindarInstance;
 
-      // 3. Lighting (Added Ambient + Directional for better food look)
-      const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+      // FIX 1: TRANSPARENCY
+      // This makes the 3D canvas transparent so the camera video shows through
+      renderer.setAlpha(true);
+      renderer.setClearColor(0x000000, 0); 
+
+      // 3. Lighting
+      const ambient = new THREE.AmbientLight(0xffffff, 1);
       scene.add(ambient);
-      const sun = new THREE.DirectionalLight(0xffffff, 1);
-      sun.position.set(1, 1, 1);
+      const sun = new THREE.DirectionalLight(0xffffff, 2);
+      sun.position.set(5, 10, 5); // Sun coming from top-right
       scene.add(sun);
 
       // 4. Anchor
       const anchor = mindarInstance.addAnchor(0);
 
-      // 5. Model Loading (Fixed Path)
+      // 5. Model Loading
       const loader = new GLTFLoader();
       loader.load("/model/cake.glb", (gltf) => {
         const model = gltf.scene;
-        model.scale.set(0.1, 0.1, 0.1);
+        
+        // FIX 2: ROTATION (The Brown Line Fix)
+        // Rotate 90 degrees on X to convert Blender Z-up to Three.js Y-up
+        model.rotation.set(Math.PI / 2, 0, 0); 
+        
+        // SCALE: 
+        // In MindAR, 1 unit = width of the physical image target.
+        // If your model is real-scale (0.2m), try 0.2 first.
+        model.scale.set(0.2, 0.2, 0.2); 
+        
+        // Center it perfectly
+        model.position.set(0, 0, 0);
+        
         anchor.group.add(model);
       });
 
-      // 6. Start Engine
+      // 6. Start
       try {
         await mindarInstance.start();
         renderer.setAnimationLoop(() => {
@@ -60,7 +78,6 @@ export default function App() {
     return () => {
       if (mindarInstance) {
         mindarInstance.stop();
-        // Clean up video feed to release the S24 camera
         const video = document.querySelector("video");
         video?.remove();
       }
@@ -68,9 +85,15 @@ export default function App() {
   }, []);
 
   return (
+    // FIX 3: REMOVE BACKGROUND COLOR
     <div
       ref={containerRef}
-      style={{ width: "100vw", height: "100vh", background: "#000", position: 'relative' }}
+      style={{ 
+        width: "100vw", 
+        height: "100vh", 
+        overflow: "hidden",
+        position: "relative" // Crucial for video layering
+      }}
     />
   );
 }
